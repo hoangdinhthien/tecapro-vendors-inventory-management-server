@@ -5,11 +5,86 @@
 // Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
 
 generator client {
-  provider = "prisma-client"
+  provider = "prisma-client-js"
   output   = "../generated/prisma"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+}
+
+model Users {
+  userId String @id
+  name   String
+  email  String
+}
+
+model Products {
+  productId      String         @id
+  name           String
+  price          Float
+  rating         Float?
+  stockQuantity  Int
+  Sales          Sales[]
+  Purchases      Purchases[]
+  salesSummaries SalesSummary[]
+}
+
+model Sales {
+  saleId      String   @id
+  productId   String
+  timestamp   DateTime
+  quantity    Int
+  unitPrice   Float
+  totalAmount Float
+  product     Products @relation(fields: [productId], references: [productId])
+}
+
+model Purchases {
+  purchaseId String   @id
+  productId  String
+  timestamp  DateTime
+  quantity   Int
+  unitCost   Float
+  totalCost  Float
+  product    Products @relation(fields: [productId], references: [productId])
+}
+
+model Expenses {
+  expenseId String   @id
+  category  String
+  amount    Float
+  timestamp DateTime
+}
+
+model SalesSummary {
+  salesSummaryId    String    @id
+  totalValue        Float
+  changePercentage  Float?
+  date              DateTime
+  products          Products? @relation(fields: [productsProductId], references: [productId])
+  productsProductId String?
+}
+
+model PurchasesSummary {
+  purchasesSummaryId String   @id
+  totalValue         Float
+  changePercentage   Float?
+  date               DateTime
+}
+
+model ExpensesSummary {
+  expensesSummaryId String              @id
+  totalExpenses     Float
+  date              DateTime
+  ExpenseByCategory ExpenseByCategory[]
+}
+
+model ExpenseByCategory {
+  expenseByCategoryId String          @id
+  expensesSummaryId   String
+  category            String
+  amount              BigInt
+  date                DateTime
+  expensesSummary     ExpensesSummary @relation(fields: [expensesSummaryId], references: [expensesSummaryId])
 }

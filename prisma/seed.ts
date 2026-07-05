@@ -1,16 +1,80 @@
-import { PrismaClient } from "@prisma/client";
+import "dotenv/config";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../generated/prisma";
 import * as fs from "fs";
 import * as path from "path";
 
-const prisma = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+
+if (!connectionString) {
+  throw new Error("DATABASE_URL is not set.");
+}
+
+const adapter = new PrismaPg({ connectionString });
+const prisma = new PrismaClient({ adapter });
+
+const modelNameMap: Record<string, string> = {
+  expenseSummary: "ExpensesSummary",
+  expenseByCategory: "ExpenseByCategory",
+  salesSummary: "SalesSummary",
+  purchaseSummary: "PurchasesSummary",
+  users: "Users",
+  products: "Products",
+  sales: "Sales",
+  purchases: "Purchases",
+  expenses: "Expenses",
+};
+
+function transformSeedData(modelName: string, data: Record<string, any>) {
+  const normalized = { ...data };
+
+  if (modelName === "ExpensesSummary") {
+    if (normalized.expenseSummaryId && !normalized.expensesSummaryId) {
+      normalized.expensesSummaryId = normalized.expenseSummaryId;
+      delete normalized.expenseSummaryId;
+    }
+  }
+
+  if (modelName === "PurchasesSummary") {
+    if (normalized.purchaseSummaryId && !normalized.purchasesSummaryId) {
+      normalized.purchasesSummaryId = normalized.purchaseSummaryId;
+      delete normalized.purchaseSummaryId;
+    }
+    if (
+      normalized.totalPurchased !== undefined &&
+      normalized.totalValue === undefined
+    ) {
+      normalized.totalValue = normalized.totalPurchased;
+      delete normalized.totalPurchased;
+    }
+  }
+
+  if (modelName === "ExpenseByCategory") {
+    if (normalized.expenseSummaryId && !normalized.expensesSummaryId) {
+      normalized.expensesSummary = {
+        connect: { expensesSummaryId: normalized.expenseSummaryId },
+      };
+      delete normalized.expenseSummaryId;
+    }
+  }
+
+  return normalized;
+}
 
 async function deleteAllData(orderedFileNames: string[]) {
-  const modelNames = orderedFileNames.map((fileName) => {
-    const modelName = path.basename(fileName, path.extname(fileName));
-    return modelName.charAt(0).toUpperCase() + modelName.slice(1);
-  });
+  const deleteOrder = [
+    "ExpenseByCategory",
+    "Sales",
+    "Purchases",
+    "Expenses",
+    "SalesSummary",
+    "PurchasesSummary",
+    "ExpensesSummary",
+    "Products",
+    "Users",
+  ];
 
-  for (const modelName of modelNames) {
+  for (const modelName of deleteOrder) {
     const model: any = prisma[modelName as keyof typeof prisma];
     if (model) {
       await model.deleteMany({});
@@ -43,7 +107,10 @@ async function main() {
   for (const fileName of orderedFileNames) {
     const filePath = path.join(dataDirectory, fileName);
     const jsonData = JSON.parse(fs.readFileSync(filePath, "utf-8"));
-    const modelName = path.basename(fileName, path.extname(fileName));
+    const baseName = path.basename(fileName, path.extname(fileName));
+    const modelName =
+      modelNameMap[baseName] ??
+      baseName.charAt(0).toUpperCase() + baseName.slice(1);
     const model: any = prisma[modelName as keyof typeof prisma];
 
     if (!model) {
@@ -52,8 +119,9 @@ async function main() {
     }
 
     for (const data of jsonData) {
+      const normalizedData = transformSeedData(modelName, data);
       await model.create({
-        data,
+        data: normalizedData,
       });
     }
 
