@@ -1,0 +1,5 @@
+import { Request, Response } from "express";
+import { PrismaPg } from "@prisma/adapter-pg";
+import { PrismaClient } from "../../generated/prisma";
+
+const prisma = new PrismaClient();
