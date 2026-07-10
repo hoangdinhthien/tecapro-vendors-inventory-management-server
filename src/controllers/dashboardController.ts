@@ -1,14 +1,7 @@
 import { Request, Response } from "express";
-import { PrismaPg } from "@prisma/adapter-pg";
-import { PrismaClient } from "../../generated/prisma";
+import { PrismaClient } from "@prisma/client";
 
-const connectionString = process.env.DATABASE_URL;
-if (!connectionString) {
-  throw new Error("DATABASE_URL is not set.");
-}
-
-const adapter = new PrismaPg({ connectionString });
-const prisma = new PrismaClient({ adapter });
+const prisma = new PrismaClient();
 
 export const getDashboardMetrics = async (
   req: Request,
@@ -27,13 +20,13 @@ export const getDashboardMetrics = async (
         date: "desc",
       },
     });
-    const purchaseSummary = await prisma.purchasesSummary.findMany({
-      take: 30,
+    const purchaseSummary = await prisma.purchaseSummary.findMany({
+      take: 5,
       orderBy: {
         date: "desc",
       },
     });
-    const expenseSummary = await prisma.expensesSummary.findMany({
+    const expenseSummary = await prisma.expenseSummary.findMany({
       take: 5,
       orderBy: {
         date: "desc",
@@ -47,7 +40,6 @@ export const getDashboardMetrics = async (
         },
       },
     );
-
     const expenseByCategorySummary = expenseByCategorySummaryRaw.map(
       (item: any) => ({
         ...item,
@@ -63,6 +55,6 @@ export const getDashboardMetrics = async (
       expenseByCategorySummary,
     });
   } catch (error) {
-    res.status(500).json({ error: "Error retrieving dashboard metrics" });
+    res.status(500).json({ message: "Error retrieving dashboard metrics" });
   }
 };
